@@ -78,7 +78,15 @@ def generateVideoFromList(imgs:list, dest, name:str="video", fps:int=10, graysca
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for .mp4 file
     # Convert destination from PosixPath to string
     name = str(dest)+'/'+name+".mp4"
-    video = cv2.VideoWriter(name, fourcc, fps, size,isColor=not grayscale)
+
+    # If file exists, add a number to the name
+    base_name, ext = os.path.splitext(name)
+    counter = 1
+    while os.path.isfile(name):
+        name = f"{base_name}_{counter}{ext}"
+        counter += 1
+    
+    video = cv2.VideoWriter(name, fourcc, fps, size, isColor=not grayscale)
 
     # Iterate over the frames and write each one to the video
     for frame in tqdm(imgs, desc="Writing video", unit="frame"):
@@ -116,7 +124,7 @@ def initVideoWriter(dest, shape, name:str="video",fps:int=10):
     video = cv2.VideoWriter(name, fourcc, fps, size, isColor = not grayscale)
     return video
 
-def imageHiveOverview(imgs: list, rgb: bool = False, img_names: list[str]= None, dt: pd.Timestamp = None, valid: bool = True):
+def imageHiveOverview(imgs: list, rgb: bool = False, img_names: list[str]= None, dt: pd.Timestamp = None, use_cet_time:bool = False, valid: bool = True):
     '''
     Generates a global image with the 4 images of the hives. If provided, also adds the img_names on the pictures.
     Parameters:
@@ -124,6 +132,7 @@ def imageHiveOverview(imgs: list, rgb: bool = False, img_names: list[str]= None,
     - rgb: bool, if True, the input images are in RGB format, else BGR format.
     - img_names: list of str, optional, names of the images to be put on the images.
     - dt: optional, datetime to be displayed on the final image.
+    - use_cet_time: bool, if True, convert dt to CET before displaying.
     - valid: bool, if False, the overview will be visually marked as invalid.
     '''
     if img_names is not None:
@@ -146,7 +155,10 @@ def imageHiveOverview(imgs: list, rgb: bool = False, img_names: list[str]= None,
     if dt is not None:
         # Make sure it is tz-aware
         assert dt.tzinfo is not None, "dt must be tz-aware"
-        dt = dt.tz_convert('UTC').strftime("%y%m%d-%H%M") + "Z"  # Convert to UTC and format as string
+        if use_cet_time:
+            dt = dt.tz_convert('Europe/Zurich').strftime("%d.%m.%Y-%H:%M")
+        else:
+            dt = dt.tz_convert('UTC').strftime("%y%m%d-%H%M") + "Z"  # Convert to UTC and format as string
         # Write the timestamp in black ontop of the white rectangle
         (text_width, text_height), _ = cv2.getTextSize(dt, cv2.FONT_HERSHEY_SIMPLEX, 2, 3)
         rectangle_bgr = (255, 255, 255)
