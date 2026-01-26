@@ -156,7 +156,7 @@ def imageHiveOverview(imgs: list, rgb: bool = False, img_names: list[str]= None,
         # Make sure it is tz-aware
         assert dt.tzinfo is not None, "dt must be tz-aware"
         if use_cet_time:
-            dt = dt.tz_convert('Europe/Zurich').strftime("%d.%m.%Y-%H:%M")
+            dt = dt.tz_convert('Europe/Zurich').strftime("%d/%m/%Y-%H:%M")
         else:
             dt = dt.tz_convert('UTC').strftime("%y%m%d-%H%M") + "Z"  # Convert to UTC and format as string
         # Write the timestamp in black ontop of the white rectangle
