@@ -47,16 +47,16 @@ def beautify_frame_graz(img, rpi:int):
     # First cut the image to the relevant part (remove the black borders)
     if rpi == 1:
         img = rotate_image(img, -2)
-        img = img[950:2650, 270:3300]
+        img = img[950:2600, 270:3300]
     elif rpi == 2:
         img = rotate_image(img, 1.5)
         img = img[600:2400, 330:3500]
     elif rpi == 3:
         img = rotate_image(img, -0.5)
-        img = img[700:2400, 650:3700]
+        img = img[700:2350, 650:3700]
     elif rpi == 4:
         img = rotate_image(img, 0)
-        img = img[800:2550, 400:3360]
+        img = img[860:2550, 400:3360]
 
     # Then scale the image such that the final size is RPiCamV3_img_shape
     img = cv2.resize(img, (RPiCamV3_img_shape[1], RPiCamV3_img_shape[0]))
