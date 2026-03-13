@@ -15,7 +15,7 @@ RPiCamV3_img_shape = (2592, 4608)   # Height, Width
 RPiCamV3_img_shape_RGB = (2592, 4608, 3)   # Height, Width, Channels
 
 @delayed
-def _fetch_single_datetime(dt:pd.Timestamp, paths, hive_nb:int):
+def _fetch_single_datetime(dt:pd.Timestamp, paths:list[str], hive_nb:int):
     dt = dt.tz_convert('UTC')  # Ensure the datetime is in UTC. Will fail if not tz-aware.
     dt_result = {}
     for path in paths:
@@ -27,8 +27,45 @@ def _fetch_single_datetime(dt:pd.Timestamp, paths, hive_nb:int):
         dt_result[rpi_name] = img_path
     return dt, dt_result
 
+@delayed
+def _fetch_single_datetime_rounded(dt:pd.Timestamp, paths:list[str], hive_nb:int, max_time_diff:int=15):
+    '''
+    Fetches the images path for a specific datetime, finding the closest images to the given datetime.
+    :param dt: pd.Timestamp, datetime for which we want the image. Needs to be tz-aware.
+    :param paths: list of str, list of paths to search for the images.
+    :param hive_nb: int, hive number (e.g., 1, 2, etc.)
+    :param max_time_diff: int, maximum time difference in minutes to consider for rounding.
+    :return: dict, containing the image paths for each RPi. If no image is found within the max_time_diff, the value will be None for that RPi.
+    '''
+    dt = dt.tz_convert('UTC')  # Ensure the datetime is in UTC. Will fail if not tz-aware.
+    dt_result = {}
+    for path in paths:
+        rpi_name = os.path.basename(path)[:4]
+        rpi_num = path.split('/')[-1][3]
+        prefix = f"hive{hive_nb}_rpi{rpi_num}_"
+        files = os.listdir(path)
+        best_file = None
+        best_delta = None
+        for f in files:
+            if not f.startswith(prefix):
+                continue
+            ts_part = f[len(prefix):].split('.')[0].rstrip('Z')
+            try:
+                file_dt = pd.to_datetime(ts_part, format='%y%m%d-%H%M%S').tz_localize('UTC')
+                delta = abs((file_dt - dt).total_seconds())
+                if best_delta is None or delta < best_delta:
+                    best_delta = delta
+                    best_file = f
+            except ValueError:
+                continue
+        if best_delta is not None and best_delta <= max_time_diff * 60:
+            dt_result[rpi_name] = os.path.join(path, best_file)
+        else:
+            dt_result[rpi_name] = None
+    return dt, dt_result
 
-def fetchImagesPaths(rootpath_imgs:str, datetimes:list[pd.Timestamp], hive_nb:int, invalid_recovery_time:int = None, images_fill_limit:int = None, rpis:list[int]=[1,2,3,4], verbose=False):
+
+def fetchImagesPaths(rootpath_imgs:str, datetimes:list[pd.Timestamp], hive_nb:int, invalid_recovery_time:int = None, images_fill_limit:int = None, rpis:list[int]=[1,2,3,4], exact_image:bool=True, verbose=False):
     '''
     Fetches the images' paths for a specific hive at specific datetimes using Dask for parallel processing.
 
@@ -38,6 +75,7 @@ def fetchImagesPaths(rootpath_imgs:str, datetimes:list[pd.Timestamp], hive_nb:in
     :param invalid_recovery_time: int, if specified, will filter out invalid datetimes including the given recovery time in minutes (when the hives were being opened + recovery time [min]).
     :param images_fill_limit: int, if provided, maximum number of images to fill the gaps with the previous images. If not provided, will not fill gaps (None in df).
     :param rpis: list of int, list of RPi numbers to consider. Default is [1,2,3,4].
+    :param exact_image: bool, if True, will look for an exact match of the datetime. If False, will use _fetch_single_datetime_rounded to find the closest image.
     :return imgs_paths_filtered: pd.DataFrame, containing the image paths. Each row is a datetime, each column is a RPi. If validity is checked, the last column will indicate whether the datetime is valid or not (bool).
     '''
 
@@ -64,7 +102,10 @@ def fetchImagesPaths(rootpath_imgs:str, datetimes:list[pd.Timestamp], hive_nb:in
             print(f"Valid datetimes: {valid_datetimes}")
 
     # Delayed processing
-    delayed_results = [_fetch_single_datetime(dt, paths, hive_nb) for dt in datetimes]
+    if exact_image:
+        delayed_results = [_fetch_single_datetime(dt, paths, hive_nb) for dt in datetimes]
+    else:
+        delayed_results = [_fetch_single_datetime_rounded(dt, paths, hive_nb) for dt in datetimes]
     results = compute(*delayed_results)
 
     # Build final DataFrame
