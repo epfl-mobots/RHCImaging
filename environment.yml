@@ -1,0 +1,36 @@
+name: imaging
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - ipykernel
+  - matplotlib
+  - tqdm
+  - dask
+  - scikit-image
+  - napari
+  - pyqt
+  - joblib
+  - tifffile
+  - psutil
+  - dask-kubernetes
+  - graphviz
+  - python-graphviz
+  - dask-image
+  - seaborn
+  - numpy
+  - pandas
+  - h5py
+  - influxdb-client
+  - pip
+  - opencv
+  - certifi
+  - pillow[version='>=13.0']
+  - libarrow
+  - pyarrow
+  - requests
+  - pip:
+      - easilastik==1.0.2
+      - tkcalendar==1.6.1
+prefix: /opt/miniconda3/envs/imaging
